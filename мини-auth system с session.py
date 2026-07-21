@@ -1,3 +1,8 @@
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
+ph = PasswordHasher()
+
+
 # SHOW
 def show_profile(current_user, users):
         print(current_user)
@@ -7,13 +12,19 @@ def show_profile(current_user, users):
 
 # CHANGE PASSWORD
 def change_password(current_user, users, new_password):
-    users[current_user]["password"] = new_password
+    users[current_user]["password"] = ph.hash(new_password)
     print("you succsesfuly changed your password")
 
 
 # DELETE MY ACCOUNT
 def delete_my_acc(current_user, users, current_role, password, answer):
-    if password != users[current_user]["password"]:
+    try:
+        ph.verify(
+            users[current_user]["password"],
+            password
+        )
+
+    except VerifyMismatchError:
         return current_user, current_role, "password is wrong"
 
     if answer != "yes":
@@ -47,7 +58,7 @@ def show_all_users(users):
         # CHANGE USER PASSWORD
 def change_user_password(new_password, users, which_user, current_user):
     if which_user in users and which_user != current_user:
-        users[which_user]["password"] = new_password
+        users[which_user]["password"] = ph.hash(new_password)
         return f"you succsesfuly changed password for {which_user}"
        
     elif which_user == current_user:
@@ -74,13 +85,13 @@ current_role = None
 
 users = {
     "alex": {
-        "password": "1234",
+        "password": ph.hash("1234"),
         "age": 17,
         "country": "Spain",
         "role": "admin"
     },
     "bob": {
-        "password": "qwerty",
+        "password": ph.hash("qwerty"),
         "age": 20,
         "country": "UK",
         "role": "user"
@@ -94,124 +105,177 @@ while True:
         login = input("write your login: ")
         password = input("write password: ")
 
-        if login in users:
-            if users[login]["password"] == password:
-                current_user = login
-                current_role = users[login]["role"]
-
-                if current_role == "admin":
-                    print(f"Welcome, Dear {login}, you are admin!")
-                    while True:
-                        sub_command = input("show / show all users / change password / change user password / delete user / delete my account / logout: ")
-
-                        # SHOW
-                        if sub_command == "show":
-                            show_profile(current_user,users)
-                            
-                        # SHOW ALL USERS
-                        elif sub_command == "show all users":
-                            show_all_users(users)
-                                
-                        # CHANGE_PASSWORD
-                        elif sub_command == "change password":
-                            new_password = input("write new password")
-                            change_password(current_user, users, new_password)
-                            
-                        # CHANGE USER PASSWORD
-                        elif  sub_command == "change user password":
-                            new_password = input("write new password")
-                            which_user = input("Write for wich user you would like to change password: ")
-                            message = change_user_password(new_password, users, which_user, current_user)
-                            print(message)
-                            
-                                
-                        # DELETE USER
-                        elif sub_command == "delete user": 
-                            user_login = input("write user login")
-                            answer = input("Are you sure 'only yes or no': ")
-                            message = delete_user(user_login, users, current_user, answer)
-                            print(message)
-                            
-                            
-                        # DELETE MY ACCOUNT
-                        elif sub_command == "delete my account":
-                            password = input(f"write your password {current_user}: ")
-                            answer = input("are you sure you want to delete your account? ")
-
-                            current_user, current_role, message = delete_my_acc(
-                                current_user,
-                                users,
-                                current_role,
-                                password,
-                                answer
-                            )
-
-                            print(message)
-                            if current_user is None:
-                                break
-                            
-                        # LOGOUT
-                        elif sub_command == "logout":
-                            answer = input("do you actually want to logout") 
-                            current_user, current_role, message =  logout(current_user, current_role, answer)
-                            if current_user is None:
-                                print(message)
-                                break
-                            
-                            else:
-                                print(message)
-                        else:
-                            print("error")
-                            
-                else:
-                    print(f"Welcome, Dear {login}")
-
-                    while True:
-                        sub_command = input("show / change password / delete my account / logout: ")
-
-                        # SHOW
-                        if sub_command == "show":
-                            show_profile(current_user,users)
-
-                        # CHANGE_PASSWORD
-                        elif sub_command == "change password":
-                            new_password = input("write new password")
-                            change_password(current_user, users, new_password)
-
-                        # DELETE MY ACCOUNT
-                        elif sub_command == "delete my account":
-                            password = input(f"write your password {current_user}: ")
-                            answer = input("are you sure you want to delete your account? ")
-
-                            current_user, current_role, message = delete_my_acc(
-                                current_user,
-                                users,
-                                current_role,
-                                password,
-                                answer
-                            )
-
-                            print(message)
-                            if current_user is None:
-                                break
-
-                        # LOGOUT
-                        elif sub_command == "logout":
-                            answer = input("do you actually want to logout") 
-                            current_user, current_role, message =  logout(current_user, current_role, answer)
-                            if current_user is None:
-                                print(message)
-                                break
-                            
-                            else:
-                                print(message)
-                        else:
-                            print("error")
-            else:
-                print("wrong password")
-        else:
+        if login not in users:
             print("login not found")
+            continue
 
+        try:
+            ph.verify(
+                users[login]["password"],
+                password
+            )
+
+        except VerifyMismatchError:
+            print("wrong password")
+            continue
+
+        current_user = login
+        current_role = users[login]["role"]
+
+        if current_role == "admin":
+            print(f"Welcome, Dear {login}, you are admin!")
+
+            while True:
+                sub_command = input(
+                    "show / show all users / change password / "
+                    "change user password / delete user / "
+                    "delete my account / logout: "
+                )
+
+                # SHOW
+                if sub_command == "show":
+                    show_profile(current_user, users)
+
+                # SHOW ALL USERS
+                elif sub_command == "show all users":
+                    show_all_users(users)
+
+                # CHANGE PASSWORD
+                elif sub_command == "change password":
+                    new_password = input("write new password: ")
+                    change_password(current_user, users, new_password)
+
+                # CHANGE USER PASSWORD
+                elif sub_command == "change user password":
+                    new_password = input("write new password: ")
+                    which_user = input(
+                        "Write for which user you would like to change password: "
+                    )
+
+                    message = change_user_password(
+                        new_password,
+                        users,
+                        which_user,
+                        current_user
+                    )
+
+                    print(message)
+
+                # DELETE USER
+                elif sub_command == "delete user":
+                    user_login = input("write user login: ")
+                    answer = input("Are you sure? yes or no: ")
+
+                    message = delete_user(
+                        user_login,
+                        users,
+                        current_user,
+                        answer
+                    )
+
+                    print(message)
+
+                # DELETE MY ACCOUNT
+                elif sub_command == "delete my account":
+                    password = input(
+                        f"write your password {current_user}: "
+                    )
+
+                    answer = input(
+                        "are you sure you want to delete your account? "
+                    )
+
+                    current_user, current_role, message = delete_my_acc(
+                        current_user,
+                        users,
+                        current_role,
+                        password,
+                        answer
+                    )
+
+                    print(message)
+
+                    if current_user is None:
+                        break
+
+                # LOGOUT
+                elif sub_command == "logout":
+                    answer = input("do you actually want to logout? ")
+
+                    current_user, current_role, message = logout(
+                        current_user,
+                        current_role,
+                        answer
+                    )
+
+                    print(message)
+
+                    if current_user is None:
+                        break
+
+                else:
+                    print("error")
+
+        else:
+            print(f"Welcome, Dear {login}")
+
+            while True:
+                sub_command = input(
+                    "show / change password / "
+                    "delete my account / logout: "
+                )
+
+                # SHOW
+                if sub_command == "show":
+                    show_profile(current_user, users)
+
+                # CHANGE PASSWORD
+                elif sub_command == "change password":
+                    new_password = input("write new password: ")
+                    change_password(current_user, users, new_password)
+
+                # DELETE MY ACCOUNT
+                elif sub_command == "delete my account":
+                    password = input(
+                        f"write your password {current_user}: "
+                    )
+
+                    answer = input(
+                        "are you sure you want to delete your account? "
+                    )
+
+                    current_user, current_role, message = delete_my_acc(
+                        current_user,
+                        users,
+                        current_role,
+                        password,
+                        answer
+                    )
+
+                    print(message)
+
+                    if current_user is None:
+                        break
+
+                # LOGOUT
+                elif sub_command == "logout":
+                    answer = input("do you actually want to logout? ")
+
+                    current_user, current_role, message = logout(
+                        current_user,
+                        current_role,
+                        answer
+                    )
+
+                    print(message)
+
+                    if current_user is None:
+                        break
+
+                else:
+                    print("error")
+                
+                
     # REGISTER
     elif command == "register":
         user_name = input("write username: ")
@@ -220,6 +284,8 @@ while True:
             print("user already exists")
         else:
             password2 = input("write password: ")
+            hashed_password = ph.hash(password2)
+            
             country = input("write country: ")
             while True:
                 try:
@@ -234,7 +300,7 @@ while True:
                     print("age must be a number")
                                 
             users[user_name] = {
-                "password": password2,
+                "password": hashed_password,
                 "age": age,
                 "country": country,
                 "role": "user"
