@@ -1,3 +1,4 @@
+import sqlite3
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 ph = PasswordHasher()
@@ -28,7 +29,7 @@ def delete_my_acc(current_user, users, current_role, password, answer):
         return current_user, current_role, "password is wrong"
 
     if answer != "yes":
-        return current_user, current_role, "deletion cancelled"
+        return current_user, current_role, "deletion cancelled" 
 
     del users[current_user]
     return None, None, "account deleted"
@@ -83,6 +84,22 @@ def delete_user(user_login, users, current_user, answer):
 current_user = None
 current_role = None
 
+connection = sqlite3.connect("users.db")
+cursor = connection.cursor()
+
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE,
+    password TEXT,
+    country TEXT,
+    age INTEGER,
+    role TEXT
+);
+""")
+
+
 users = {
     "alex": {
         "password": ph.hash("1234"),
@@ -97,6 +114,7 @@ users = {
         "role": "user"
     }
 }
+
 
 while True:
     command = input("Choose login, register, exit: ")
@@ -287,6 +305,30 @@ while True:
             hashed_password = ph.hash(password2)
             
             country = input("write country: ")
+            
+            cursor.execute(
+                """
+                INSERT INTO users(
+                    username,
+                    password,
+                    country,
+                    age,
+                    role
+                )
+                VALUES  (?,?,?,?,?)
+                """,
+                   
+                (
+                    user_name,
+                    hashed_password,
+                    country,
+                    age,
+                    "user"
+                )
+            )
+                
+            connection.commit()
+               
             while True:
                 try:
                     age = int(input("write age: "))
