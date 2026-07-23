@@ -123,23 +123,31 @@ while True:
         login = input("write your login: ")
         password = input("write password: ")
 
-        if login not in users:
-            print("login not found")
+        cursor.execute(
+            "SELECT password, role FROM users WHERE username = ?",
+            (login,)
+        )
+
+        user = cursor.fetchone()
+
+        if user is None:
+            print("user does not exist")
             continue
+        else:
+            stored_hash = user[0]
+            role = user[1]
 
         try:
-            ph.verify(
-                users[login]["password"],
-                password
-            )
+            ph.verify(stored_hash, password)
+
+            print("logged in")
+            current_user = login
+            current_role = role
 
         except VerifyMismatchError:
-            print("wrong password")
+            print("password wrong")
             continue
-
-        current_user = login
-        current_role = users[login]["role"]
-
+            
         if current_role == "admin":
             print(f"Welcome, Dear {login}, you are admin!")
 
@@ -297,15 +305,23 @@ while True:
     # REGISTER
     elif command == "register":
         user_name = input("write username: ")
+        password2 = input("write password: ")
+        hashed_password = ph.hash(password2)
+        country = input("write country: ")
+        
+        
+        while True:
+            try:
+                    age = int(input("write age: "))
 
-        if user_name in users:
-            print("user already exists")
-        else:
-            password2 = input("write password: ")
-            hashed_password = ph.hash(password2)
-            
-            country = input("write country: ")
-            
+                    if age > 0:
+                        break
+                    print("age must be greater than 0")
+
+            except ValueError:
+                    print("age must be a number")
+                
+        try:
             cursor.execute(
                 """
                 INSERT INTO users(
@@ -325,29 +341,14 @@ while True:
                     age,
                     "user"
                 )
-            )
-                
+            ) 
             connection.commit()
-               
-            while True:
-                try:
-                    age = int(input("write age: "))
-
-                    if age > 0:
-                        break
-
-                    print("age must be greater than 0")
-
-                except ValueError:
-                    print("age must be a number")
-                                
-            users[user_name] = {
-                "password": hashed_password,
-                "age": age,
-                "country": country,
-                "role": "user"
-            }
             print("you are registered")
+            
+            
+        except sqlite3.IntegrityError:
+            print("user already exists")
+                
             
     # EXIT
     elif command == "exit":
