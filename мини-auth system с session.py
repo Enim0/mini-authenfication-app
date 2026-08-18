@@ -4,35 +4,76 @@ from argon2.exceptions import VerifyMismatchError
 ph = PasswordHasher()
 
 
-# SHOW
-def show_profile(current_user, users):
-        print(current_user)
-        print(users[current_user]["age"])
-        print(users[current_user]["country"])
 
+# SHOW
+def show_profile(current_user):
+    cursor.execute("""
+    SELECT username, age, country FROM users WHERE username = ?
+    """,
+    (current_user,)
+    )
+    
+    user_data = cursor.fetchone()
+    username, age, country = user_data
+    print(username)
+    print(age)
+    print(country)
+    
 
 # CHANGE PASSWORD
-def change_password(current_user, users, new_password):
-    users[current_user]["password"] = ph.hash(new_password)
-    print("you succsesfuly changed your password")
+def change_password(current_user, new_password):
+    new_hashed_password = ph.hash(new_password)
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET password = ?
+        WHERE username = ?
+        """,
+        (
+            new_hashed_password,
+            current_user
+        )
+    )
+
+    connection.commit()
 
 
 # DELETE MY ACCOUNT
-def delete_my_acc(current_user, users, current_role, password, answer):
-    try:
-        ph.verify(
-            users[current_user]["password"],
-            password
+def delete_my_acc(current_user, current_role, password, answer):
+        cursor.execute(
+            """
+            SELECT password FROM users WHERE username = ?
+            """,
+            (current_user,)
         )
 
-    except VerifyMismatchError:
-        return current_user, current_role, "password is wrong"
+        user_data = cursor.fetchone()
+        stored_hash = user_data[0]
 
-    if answer != "yes":
-        return current_user, current_role, "deletion cancelled" 
+        try:
+            ph.verify(
+                stored_hash,
+                password
+            )
 
-    del users[current_user]
-    return None, None, "account deleted"
+        except VerifyMismatchError:
+            return current_user, current_role, "password is wrong"
+
+        if answer != "yes":
+            return current_user, current_role, "deletion cancelled"
+
+        cursor.execute(
+            """
+            DELETE FROM users
+            WHERE username = ?;
+            """,
+            (current_user,)
+        )
+        
+        connection.commit()
+        
+        return None, None, "account deleted"
 
        
 # LOGOUT
@@ -47,39 +88,87 @@ def logout(current_user, current_role, answer):
 
 
         # SHOW ALL USERS
-def show_all_users(users):
-    for user_login in users:
-        print(user_login)
-        print(users[user_login]["age"])
-        print(users[user_login]["country"])
-        print(users[user_login]["role"])
-        print("")
+def show_all_users():
+    cursor.execute("""
+    SELECT username, age, country, role FROM users
+    """)
+    
+    details = cursor.fetchall()
+
+    for username, age, country, role in details:
+        print(username)
+        print(age)
+        print(country)
+        print(role)
+        
         
                            
         # CHANGE USER PASSWORD
-def change_user_password(new_password, users, which_user, current_user):
-    if which_user in users and which_user != current_user:
-        users[which_user]["password"] = ph.hash(new_password)
-        return f"you succsesfuly changed password for {which_user}"
-       
-    elif which_user == current_user:
-            return "use 'change password' to change your own password"
-    else:
-            return "user doesn not exsist"
-        
+def change_user_password(new_password,  which_user, current_user):
+    if which_user == current_user:
+        return"Your password you can change only in change password"
+  
+    
+    cursor.execute(
+        "SELECT username FROM users WHERE username = ?",
+        (which_user,)
+    )
+    
+    user = cursor.fetchone()
+    
+    if user is None:
+        return"user does not exsist"
+    
+    hashed_password = ph.hash(new_password)
+    
+    cursor.execute(
+        """
+        UPDATE users
+        SET password = ?
+        WHERE username = ?
+        """,
+        (hashed_password, which_user)
+    )    
+    
+    connection.commit()
+    
+    
+    return f"you successfully changed password for {which_user}"
+    
         
         # DELETE USER 
-def delete_user(user_login, users, current_user, answer):
-    if user_login in users and user_login != current_user:
-        if answer == "yes":
-            del users[user_login]
-            return  "you deleted user"
-        else:
-            return "deleting user declained"
-    elif user_login == current_user:
-        return "you can not delete yourself"
-    else:
-        return "user doesn't exist"
+def delete_user(user_login, current_user, answer):
+    if user_login == current_user:
+        return "You can not delete your account here"
+
+    cursor.execute(
+        """
+        SELECT username FROM users
+        WHERE username = ?
+        """,
+        (user_login,)
+    )
+
+    user_data = cursor.fetchone()
+
+    if user_data is None:
+        return "user does not exist"
+
+    if answer != "yes":
+        return "deleting user cancelled"
+
+    cursor.execute(
+        """
+        DELETE FROM users
+        WHERE username = ?
+        """,
+        (user_login,)
+    )
+
+    connection.commit()
+
+    return f"{user_login} successfully deleted"
+   
         
 current_user = None
 current_role = None
@@ -100,20 +189,6 @@ CREATE TABLE IF NOT EXISTS users (
 """)
 
 
-users = {
-    "alex": {
-        "password": ph.hash("1234"),
-        "age": 17,
-        "country": "Spain",
-        "role": "admin"
-    },
-    "bob": {
-        "password": ph.hash("qwerty"),
-        "age": 20,
-        "country": "UK",
-        "role": "user"
-    }
-}
 
 
 while True:
@@ -160,16 +235,16 @@ while True:
 
                 # SHOW
                 if sub_command == "show":
-                    show_profile(current_user, users)
+                    show_profile(current_user)
 
                 # SHOW ALL USERS
                 elif sub_command == "show all users":
-                    show_all_users(users)
+                    show_all_users()
 
                 # CHANGE PASSWORD
                 elif sub_command == "change password":
                     new_password = input("write new password: ")
-                    change_password(current_user, users, new_password)
+                    change_password(current_user, new_password)
 
                 # CHANGE USER PASSWORD
                 elif sub_command == "change user password":
@@ -180,7 +255,6 @@ while True:
 
                     message = change_user_password(
                         new_password,
-                        users,
                         which_user,
                         current_user
                     )
@@ -194,7 +268,6 @@ while True:
 
                     message = delete_user(
                         user_login,
-                        users,
                         current_user,
                         answer
                     )
@@ -213,7 +286,6 @@ while True:
 
                     current_user, current_role, message = delete_my_acc(
                         current_user,
-                        users,
                         current_role,
                         password,
                         answer
@@ -253,12 +325,12 @@ while True:
 
                 # SHOW
                 if sub_command == "show":
-                    show_profile(current_user, users)
+                    show_profile(current_user)
 
                 # CHANGE PASSWORD
                 elif sub_command == "change password":
                     new_password = input("write new password: ")
-                    change_password(current_user, users, new_password)
+                    change_password(current_user, new_password)
 
                 # DELETE MY ACCOUNT
                 elif sub_command == "delete my account":
@@ -272,7 +344,6 @@ while True:
 
                     current_user, current_role, message = delete_my_acc(
                         current_user,
-                        users,
                         current_role,
                         password,
                         answer
