@@ -5,7 +5,7 @@ root = tk.Tk()
 
 
 root.title("Authentication System")
-root.geometry("500x400")
+root.geometry("700✕500")
 
 
 username_label = tk.Label(root, text="Username")
@@ -27,25 +27,23 @@ result_label.pack()
 # Functions 
 
     # USER
-def show_user_window(current_role,current_user):
+def show_user_window(current_user):
 
     user_window = tk.Toplevel(root)
     user_window.title(f"{current_user}")
-    user_window.geometry("500x400")
-
+    user_window.geometry("700✕500")
+    root.withdraw()
 
     # ADMIN
 def show_admin_window(current_role, current_user):
 
-
     admin_window = tk.Toplevel(root)
     admin_window.title(f"{current_user}, you are {current_role}")
-    admin_window.geometry("500x400")
+    admin_window.geometry("700✕500")
     root.withdraw()
 
 
-
-
+# LOGIN
 
 def login():
     username = username_entry.get()
@@ -65,8 +63,25 @@ def login():
         else:
              show_admin_window(current_role, current_user)
 
+# SHOW
+def show_profile(current_user):
+    # Window
+    show_profile_window = tk.Toplevel(root)
+    show_profile_window.title("Show_profile")
+    show_profile_window.geometry("700✕500")
 
+    
+    username, age, country= auth_system.show_profile(current_user)
+    
 
+    username2_label = tk.Label(show_profile_window, text =f"Username: {username}")
+    username2_label.pack()
+
+    age_label = tk.Label(show_profile_window, text =f"Age: {age}")
+    age_label.pack()
+
+    country_label = tk.Label(show_profile_window, text =f"Country: {country}")
+    country_label.pack()
 
 button = tk.Button(
     root,

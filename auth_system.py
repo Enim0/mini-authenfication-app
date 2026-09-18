@@ -45,9 +45,7 @@ def show_profile(current_user):
     
     user_data = cursor.fetchone()
     username, age, country = user_data
-    print(username)
-    print(age)
-    print(country)
+    return username, age, country
     
 
 # CHANGE PASSWORD
